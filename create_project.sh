@@ -7,7 +7,6 @@
 command clear
 
 # Welcome and readme
-
 echo " "
 echo "    hello! this script creates a directory " 
 echo "    to start a flask (python) project      "
@@ -15,18 +14,26 @@ echo "    it will guide you trough the process   "
 echo "    and checks the requirements            "
 echo " "
 
-read -r -p "     Do you wish to continue? [y/N] ---> " continue
+# Dialog box size (db_x)
+dialog_box_h=16
+dialog_box_w=50
+
+read -r -p "    Do you wish to continue? [y/N] ---> " continue
 if [[ "$continue" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
-    project_name=$(whiptail --inputbox "Please give the project a name:" 8 78 Name --title "Name-Display APP" 3>&1 1>&2 2>&3)
+    project_name=$(whiptail --inputbox "Please give the project a name:" $dialog_box_h $dialog_box_w Name --title "-" 3>&1 1>&2 2>&3)
     exitstatus=$?
     if [ $exitstatus = 0 ]; then
         echo "User selected Ok and entered " $project_name
         # mostrar opciones
-        whiptail --textbox name_test 12 80
-
-        
-
+        whiptail --textbox name_test $dialog_box_h $dialog_box_w
+        install_options=(
+            "Create readme.md" "" off
+            "Create venv" "" off
+            "Start Git repository" "" off
+            "Create Dockerfile" "" off
+        )
+        whiptail --title "$project_name" --checklist "choose" $dialog_box_h $dialog_box_w 10 "${install_options[@]}"
     else
         echo "User selected Cancel."
     fi
@@ -36,10 +43,8 @@ else
 fi
 
 
-
 # Check requirements
 #   newt library
-
 
 echo "this script creates a minimal flask project"
 echo "please, enter the project name"
