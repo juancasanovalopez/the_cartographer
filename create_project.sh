@@ -1,56 +1,103 @@
 #!/bin/bash
 
-#requirements:
+#
+#     REQUIREMENTS
+#
+
 #    git
-#    flask
+#    python flask
 #    newt
-command clear
+
+# 
+#     GLOBALS
+#
+
+#   Dialog box size height and with
+dialog_box_h=16
+dialog_box_w=50
+operative_system=unknown
+
+#
+#     FUNCTIONS
+#
+
+available (){
+# this function returns if a command is available 
+# in your CLI interface it gets $1 as an input. It
+# can be called: available "command_to_test"
+    if ! command -v $1 &> /dev/null
+    then
+        echo "    $1 could not be found on your system"
+        exit
+    fi
+}
+
+check_os (){
+# This function gets the operative_system name 
+#
+#
+    os_type=`command uname`
+    if (($os_type == "Darwin")); then
+        operative_system=MacOS
+    elif (($os_type == "Linux")); then
+        # Check linux distribution
+        distro=`command cat /etc/os-release | grep "\bID=\b"`
+        operative_system="$distro"
+    fi
+}
+
+#
+#     MAIN
+#
+
+
 
 # Welcome and readme
+command clear
 echo " "
 echo "    hello! this script creates a directory " 
 echo "    to start a flask (python) project      "
 echo "    it will guide you trough the process   "
 echo "    and checks the requirements            "
 echo " "
-
-# Dialog box size (db_x)
-dialog_box_h=16
-dialog_box_w=50
-
 read -r -p "    Do you wish to continue? [y/N] ---> " continue
+
+
+# detect system
+check_os
+
 if [[ "$continue" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
-    project_name=$(whiptail --inputbox "Please give the project a name:" $dialog_box_h $dialog_box_w Name --title "-" 3>&1 1>&2 2>&3)
-    exitstatus=$?
-    if [ $exitstatus = 0 ]; then
-        echo "User selected Ok and entered " $project_name
-        # mostrar opciones
-        whiptail --textbox name_test $dialog_box_h $dialog_box_w
-        install_options=(
-            "Create readme.md" "" off
-            "Create venv" "" off
-            "Start Git repository" "" off
-            "Create Dockerfile" "" off
-        )
-        whiptail --title "$project_name" --checklist "choose" $dialog_box_h $dialog_box_w 10 "${install_options[@]}"
-    else
-        echo "User selected Cancel."
+    # check if whiptail is availble
+    if available "whiptail"; then
+        project_name=$(whiptail --inputbox "Please give the project a name:" $dialog_box_h $dialog_box_w Name --title "$operative_system" 3>&1 1>&2 2>&3)
+        exitstatus=$?
+        if [ $exitstatus = 0 ]; then
+            echo "User selected Ok and entered " $project_name
+            # mostrar opciones
+            whiptail --textbox name_test $dialog_box_h $dialog_box_w
+            install_options=(
+                "Create readme.md" "" off
+                "Create venv" "" off
+                "Start Git repository" "" off
+                "Create Dockerfile" "" off
+            )
+            whiptail --title "$project_name" --checklist "choose" $dialog_box_h $dialog_box_w 10 "${install_options[@]}"
+            echo "$install_options"
+        else
+            echo "User selected exit."
+            exit 0
+        fi
+        #echo "(Exit status was $exitstatus)"
     fi
-    echo "(Exit status was $exitstatus)"
 else
     exit 0
 fi
 
 
+
 # Check requirements
 #   newt library
-
-echo "this script creates a minimal flask project"
-echo "please, enter the project name"
-
-read project_name
-echo $project_name
 
 mkdir $project_name
 cd $project_name
