@@ -14,7 +14,7 @@
 
 #   Dialog box size height and with
 dialog_box_h=16
-dialog_box_w=50
+dialog_box_w=66
 operative_system=unknown
 
 #
@@ -25,10 +25,9 @@ available (){
 # this function returns if a command is available 
 # in your CLI interface it gets $1 as an input. It
 # can be called: available "command_to_test"
-    if ! command -v $1 &> /dev/null
-    then
-        echo "    $1 could not be found on your system"
-        exit
+    if ! command -v $1 &> /dev/null;then
+        echo "    $1 could not be found on your system" >> .log
+        kill -INT $$
     fi
 }
 
@@ -46,79 +45,178 @@ check_os (){
     fi
 }
 
+activate (){
+# This function activates the virtual env
+#
+#
+  . $1/bin/activate  
+}
+
 #
 #     MAIN
 #
-
-
-
 # Welcome and readme
-command clear
-echo " "
-echo "    hello! this script creates a directory " 
-echo "    to start a flask (python) project      "
-echo "    it will guide you trough the process   "
-echo "    and checks the requirements            "
-echo " "
-read -r -p "    Do you wish to continue? [y/N] ---> " continue
 
+command clear
+echo -e "
+    hello! this script creates a directory 
+    to start a flask (python) project
+    it will guide you trough the process
+    and checks the requirements"
+read -r -p "    Do you wish to continue? [y/N] ---> " continue
+command clear
 
 # detect system
 check_os
 
-if [[ "$continue" =~ ^([yY][eE][sS]|[yY])$ ]]
-then
+#declare options
+options=(   "readme.md"
+            "venv"
+            ".gitignore"
+            "git init"
+            "Dockerfile")
+            
+options_description=(
+            "Add readme file to project" 
+            "Add virtual environment (recommended)"
+            "Add .gitignore to project repository"
+            "Start project repository"
+            "Add Dockerfile to project")
+
+if [[ "$continue" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # check if whiptail is availble
-    if available "whiptail"; then
+    if available "whiptail" ; then
         project_name=$(whiptail --inputbox "Please give the project a name:" $dialog_box_h $dialog_box_w Name --title "$operative_system" 3>&1 1>&2 2>&3)
         exitstatus=$?
         if [ $exitstatus = 0 ]; then
-            echo "User selected Ok and entered " $project_name
+            #echo "     User selected Ok and entered " $project_name
             # mostrar opciones
-            whiptail --textbox name_test $dialog_box_h $dialog_box_w
-            install_options=(
-                "Create readme.md" "" off
-                "Create venv" "" off
-                "Start Git repository" "" off
-                "Create Dockerfile" "" off
-            )
-            whiptail --title "$project_name" --checklist "choose" $dialog_box_h $dialog_box_w 10 "${install_options[@]}"
-            echo "$install_options"
+            #whiptail --infobox "name_test" $dialog_box_h $dialog_box_w
+            install_options=$(whiptail --separate-output --checklist "Choose options" $dialog_box_h $dialog_box_w 6 \
+                "${options[0]}" "${options_description[0]}" OFF \
+                "${options[1]}" "${options_description[1]}" OFF \
+                "${options[2]}" "${options_description[2]}" OFF \
+                "${options[3]}" "${options_description[3]}" OFF \
+                "${options[4]}" "${options_description[4]}" OFF 3>&1 1>&2 2>&3 )    
         else
             echo "User selected exit."
             exit 0
         fi
-        #echo "(Exit status was $exitstatus)"
     fi
 else
     exit 0
 fi
 
 
-
-# Check requirements
-#   newt library
-
+#
+#   DIRECTORY
+#
 mkdir $project_name
-cd $project_name
-# creacion de ficheros necesarios
 
-#
-# readme
-#
-if test -f "readme.md"; then
-    echo "readme already exists."
-else
-    echo "# Title" >> readme.md
-fi
+echo $install_options
 
-#
-# .gitignore
-#
-if test -f ".gitignore"; then
-    echo ".gitignore already exists."
+if [ -z $install_options ]; then
+  echo "No option was selected (user hit Cancel or unselected all options)"  
+  rm -r $project_name
 else
-    echo -e "# Python
+    cd $project_name
+    pwd
+    for install_option in $install_options; do
+        case $install_option in
+        ${options[0]})
+        #
+        #   readme.md
+        #  
+            if test -f "readme.md"; then
+                echo "readme already exists."
+            else
+                echo "# Title" >> readme.md
+            fi
+        ;;
+        ${options[1]})
+        #
+        #   venv
+        #
+            # python, pip and flask are available
+            if [[ $operative_system == "MacOS" ]]; then
+                python_command=python3
+                pip_command=pip3
+            else
+                python_command=python
+                pip_command=pip
+            fi
+
+            if available $python_command ; then echo "python available" >> .log
+            else echo "python not available" >> .log
+            fi
+
+            if available $pip_command ; then echo "pip available" >> .log
+            else echo "pip not available" >> .log
+            fi
+
+            virtual_env_name=$(whiptail --inputbox "Please give your virtual environmente a name, be creative, you can use the_OASIS, narnia, matrix if you are old enough...:" $dialog_box_h $dialog_box_w Name --title "$project_name" 3>&1 1>&2 2>&3)
+
+            if test -f $virtual_env_name; then
+                echo "venv already exists." >> .log
+            else
+                if available "python3 -m venv $virtual_env_name"; then 
+                    echo "creating venv...">> .log
+                    command python3 -m venv $virtual_env_name
+                    echo $virtual_env_name"/" >> .gitignore
+                    echo "venv $virtual_env_name ready">> .log
+                    # remember that command deactivate deactivates the venv
+                else
+                    echo "something went wrong creating the virtual environment" >> .log
+                fi
+            fi
+        
+            # activates the virtual environment
+            cd $virtual_env_name
+            pwd
+            . bin/activate
+            cd .. 
+            pwd    
+
+            # install flask to venv       
+            if available "flask" ; then
+                command $pip_command install Flask
+                command $pip_command freeze >> requirements.txt
+                echo "flask available" >> .log
+            else
+                echo "flask not available" >> .log
+            fi
+
+        #
+        # Main Python Script
+        #
+            if test -f $project_name".py"; then
+                echo $project_name".py already exists."
+            else
+                echo -e "from flask import Flask
+app = Flask(__name__)
+@app.route('/')
+def hello():
+    return 'Hello World!'
+" >> $project_name".py"
+            fi
+
+            command export FLASK_APP=$project_name".py"
+            command export FLASK_DEBUG=true
+            command flask run
+
+        ;;
+        ${options[2]})
+            echo "${options[2]} selected"
+
+            #
+            # .gitignore
+            #
+
+            if available "git" ; then echo "git disponible" >> .log
+            if test -f ".gitignore"; then
+                echo ".gitignore already exists." >> .log
+            else
+                echo -e "# Python
 *.pyc
 *~
 __pycache__
@@ -149,62 +247,31 @@ $RECYCLE.BIN/
 .vscode/
 .history/
 *.code-workspace " >> .gitignore
+                # iniciar repositorio
+                command git init
+            fi
+        else echo "git no disponible" >> .log
+        fi
 
-    # iniciar repositorio
-    if ! command -v git &> /dev/null
-    then
-        echo "<the_command> could not be found"
-        exit
-    else
-        command git init
-    fi
+        ;;
+        ${options[3]})
+            echo "${options[3]} selected"
+        ;;
+        ${options[4]})
+            echo "${options[4]} selected"
+        ;;
+        *)
+            echo "Unsupported item $install_option!" >&2
+            exit 1
+        ;;
+    esac
+  done
 fi
 
-#
-# Python virtual environment venv
-#
-echo -e "please, give your venv a name, 
-be creative, something like... 
-narnia, matrix will be ok :)"
-read virtual_env_name
-echo $virtual_env_name
-venv_available=false
-
-if test -f $virtual_env_name; then
-    echo "venv already exists."
-else
-    if ! command -v python3 -m venv $virtual_env_name &> /dev/null
-    then
-        echo "something went wrong..."
-        exit
-    else
-        command python3 -m venv $virtual_env_name
-        echo $virtual_env_name"/" >> .gitignore
-        venv_available=true
-        # remember that command deactive deactivates the venv
-    fi
-fi
-#TODO: verificaciones de estos comandos
-
-command source $virtual_env_name/bin/activate
-command pip install Flask
-command pip freeze >> requirements.txt
 
 
-#
-# Principal Python Script
-#
-if test -f $project_name".py"; then
-    echo $project_name".py already exists."
-else
-    echo -e "from flask import Flask
-app = Flask(__name__)
-@app.route('/')
-def hello():
-    return 'Hello World!'
-" >> $project_name".py"
-fi
 
-command export FLASK_APP=$project_name".py"
-command export FLASK_DEBUG=true
-command flask run
+
+
+
+
